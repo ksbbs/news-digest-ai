@@ -356,3 +356,6 @@ HTML_FILENAME = "daily_news_{date}.html"
 ---
 
 **注意**：使用本程序抓取BBC新闻内容时，请遵守BBC的使用条款和版权规定。建议设置合理的请求频率，避免对BBC服务器造成负担。
+Disclaimer / 说明
+本项目部分代码由 AI (ChatGPT/Claude/Copilot) 辅助生成。我已尽力测试并修复 bug，但作为初学者，代码可能仍有不足之处。欢迎大佬们提 Issue 或 PR 指正！
+(This project was built with the assistance of AI tools. While I have tested the code, suggestions for improvement are highly welcome!)
