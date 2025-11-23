@@ -332,7 +332,7 @@ HTML_FILENAME = "daily_news_{date}.html"
 
 ## 🔄 更新日志
 
-- 2024-01-01: 初始版本发布
+- 2025年11月23日: 初始版本发布
   - 支持BBC多类别新闻抓取
   - 支持OpenAI格式API
   - 生成Markdown和HTML报告
