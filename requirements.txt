@@ -1,0 +1,10 @@
+# 核心依赖
+requests==2.31.0              # HTTP请求库，用于爬虫和API调用
+beautifulsoup4==4.12.2        # HTML解析库，用于提取新闻内容
+lxml==4.9.3                   # BeautifulSoup的解析器，更快更强大
+
+# 日志和工具
+python-dotenv==1.0.0          # 可选：从.env文件加载环境变量
+
+# 安全净化
+bleach==6.1.0                 # HTML净化库，防止XSS攻击
