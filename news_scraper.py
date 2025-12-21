@@ -6,6 +6,8 @@ BBC新闻爬虫模块
 import time
 import logging
 from typing import List, Dict
+import os
+import xml.etree.ElementTree as ET
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -54,6 +56,123 @@ class NewsScraper:
                 else:
                     self.logger.error(f"请求失败（已重试{config.MAX_RETRIES}次）: {url}")
                     raise
+
+    def _clean_text(self, text: str) -> str:
+        """
+        清理HTML文本，提取纯文本内容
+        """
+        if not text:
+            return ""
+        return BeautifulSoup(text, 'html.parser').get_text(' ', strip=True)
+
+    def _get_xml_text_by_suffix(self, element: ET.Element, suffixes: List[str]) -> str:
+        """
+        根据标签后缀提取XML文本（兼容命名空间）
+        """
+        for child in element.iter():
+            for suffix in suffixes:
+                if child.tag.endswith(suffix):
+                    text = ''.join(child.itertext()).strip()
+                    if text:
+                        return text
+        return ""
+
+    def _get_xml_link(self, element: ET.Element) -> str:
+        """
+        提取RSS/Atom条目的链接
+        """
+        fallback_link = ""
+        for child in element.iter():
+            if child.tag.endswith('link'):
+                href = child.attrib.get('href')
+                if href:
+                    rel = child.attrib.get('rel', 'alternate')
+                    if rel == 'alternate':
+                        return href.strip()
+                    if not fallback_link:
+                        fallback_link = href.strip()
+                if child.text:
+                    if not fallback_link:
+                        fallback_link = child.text.strip()
+        return fallback_link
+
+    def _parse_rss_sources_file(self, file_path: str) -> List[Dict]:
+        """
+        从文件中解析RSS源列表，每行一个URL（可在URL前写名称）
+        """
+        if not file_path or not os.path.exists(file_path):
+            return []
+
+        sources = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+
+                    url_match = re.search(r'https?://\S+', line)
+                    if not url_match:
+                        continue
+
+                    url = url_match.group(0).rstrip(').,;，。')
+                    name_part = line[:url_match.start()].strip()
+                    name_part = re.sub(r'^[\-\*\d\.\)\s]+', '', name_part)
+                    name_part = name_part.rstrip('：:，,')
+                    name = name_part or url
+
+                    sources.append({
+                        'name': name,
+                        'url': url
+                    })
+        except Exception as e:
+            self.logger.error(f"读取RSS源文件失败: {file_path} - {e}")
+
+        return sources
+
+    def _get_rss_sources(self) -> List[Dict]:
+        """
+        合并配置项与文件中的RSS源
+        """
+        sources: List[Dict] = []
+
+        config_sources = getattr(config, "RSS_FEEDS", [])
+        for source in config_sources:
+            if isinstance(source, dict):
+                url = source.get("url")
+                if not url:
+                    continue
+                name = source.get("name") or url
+                item = {
+                    "name": name,
+                    "url": url
+                }
+                if source.get("max_items"):
+                    item["max_items"] = source["max_items"]
+                sources.append(item)
+            elif isinstance(source, str):
+                sources.append({
+                    "name": source,
+                    "url": source
+                })
+
+        file_path = getattr(config, "RSS_SOURCES_FILE", "")
+        sources.extend(self._parse_rss_sources_file(file_path))
+
+        unique_sources = {}
+        for source in sources:
+            url = source.get("url")
+            if not url:
+                continue
+            if url in unique_sources:
+                if unique_sources[url].get("name") == url and source.get("name"):
+                    unique_sources[url]["name"] = source["name"]
+                if "max_items" in source:
+                    unique_sources[url]["max_items"] = source["max_items"]
+            else:
+                unique_sources[url] = dict(source)
+
+        return list(unique_sources.values())
 
     def parse_news_list(self, html: str, category: str, url: str) -> List[Dict]:
         """
@@ -125,6 +244,97 @@ class NewsScraper:
             self.logger.error(f"解析新闻列表失败: {e}")
 
         return news_items
+
+    def parse_rss_items(self, xml_content: str, source_name: str, source_url: str, max_items: int) -> List[Dict]:
+        """
+        解析RSS/Atom内容
+        """
+        items = []
+        try:
+            root = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            self.logger.error(f"解析RSS失败: {source_url} - {e}")
+            return items
+
+        if root.tag.endswith('feed'):
+            entries = root.findall(".//{*}entry")
+            if not entries:
+                entries = root.findall(".//entry")
+        else:
+            entries = root.findall(".//item")
+            if not entries:
+                entries = root.findall(".//{*}item")
+
+        for entry in entries:
+            title = self._get_xml_text_by_suffix(entry, ["title"])
+            link = self._get_xml_link(entry)
+            summary_raw = self._get_xml_text_by_suffix(entry, ["summary", "description", "content", "encoded"])
+            summary = self._clean_text(summary_raw)
+
+            if not title and not summary:
+                continue
+
+            if not link:
+                link = source_url
+
+            if not title:
+                title = summary[:80] if summary else "未命名"
+
+            items.append({
+                'title': title,
+                'url': link,
+                'summary': summary,
+                'category': source_name,
+                'content': summary or title
+            })
+
+            if len(items) >= max_items:
+                break
+
+        self.logger.info(f"RSS源解析完成: {source_name}（{len(items)}条）")
+        return items
+
+    def scrape_rss_sources(self) -> List[Dict]:
+        """
+        抓取配置的RSS/Atom订阅源
+        """
+        if not getattr(config, "ENABLE_RSS_SOURCES", True):
+            self.logger.info("RSS抓取已关闭，跳过RSS源")
+            return []
+
+        sources = self._get_rss_sources()
+        if not sources:
+            self.logger.info("未配置RSS源，跳过RSS抓取")
+            return []
+
+        per_feed = getattr(config, "RSS_PER_FEED", config.NEWS_PER_CATEGORY)
+        all_items: List[Dict] = []
+
+        for source in sources:
+            name = source.get("name", "RSS")
+            url = source.get("url")
+            if not url:
+                continue
+
+            max_items = source.get("max_items", per_feed)
+            try:
+                max_items = int(max_items)
+            except (TypeError, ValueError):
+                max_items = per_feed
+            if max_items <= 0:
+                continue
+            try:
+                self.logger.info(f"开始抓取RSS: {name}")
+                xml_content = self.fetch_page(url)
+                feed_items = self.parse_rss_items(xml_content, name, url, max_items)
+                all_items.extend(feed_items)
+                time.sleep(config.REQUEST_DELAY)
+            except Exception as e:
+                self.logger.error(f"抓取RSS失败: {name} - {url} - {e}")
+                continue
+
+        self.logger.info(f"RSS抓取完成，总共 {len(all_items)} 条")
+        return all_items
 
     def extract_article_content(self, url: str) -> str:
         """
@@ -223,6 +433,9 @@ class NewsScraper:
             except Exception as e:
                 self.logger.error(f"抓取类别失败: {category_name} - {e}")
                 continue
+
+        rss_news = self.scrape_rss_sources()
+        all_news.extend(rss_news)
 
         self.logger.info(f"新闻抓取完成，总共 {len(all_news)} 条")
         return all_news

@@ -41,6 +41,25 @@ BBC_CATEGORIES = {
 NEWS_PER_CATEGORY = 5  # 总共4个类别 × 5条 = 20条
 
 # ======================================================
+# RSS订阅源配置（可选）
+# ======================================================
+
+# 是否启用RSS抓取
+ENABLE_RSS_SOURCES = True
+
+# RSS源文件（每行包含一个RSS链接，可在链接前写名称）
+RSS_SOURCES_FILE = "./信息源/news.md"
+
+# 也可以在这里直接配置RSS源
+# 支持格式: {"name": "科技资讯", "url": "https://example.com/rss.xml", "max_items": 5}
+RSS_FEEDS = [
+    # {"name": "示例RSS", "url": "https://example.com/rss.xml", "max_items": 5},
+]
+
+# 每个RSS源抓取条数（当RSS_FEEDS未指定max_items时使用）
+RSS_PER_FEED = 5
+
+# ======================================================
 # 输出配置
 # ======================================================
 

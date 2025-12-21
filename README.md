@@ -235,6 +235,14 @@ BBC_CATEGORIES = {
 # 每个类别抓取的新闻数量（建议3-5条）
 NEWS_PER_CATEGORY = 5
 
+# RSS订阅源（可选）
+ENABLE_RSS_SOURCES = True
+RSS_SOURCES_FILE = "./信息源/news.md"  # 每行包含一个RSS链接，可在链接前写名称
+RSS_FEEDS = [
+    # {"name": "示例RSS", "url": "https://example.com/rss.xml", "max_items": 5},
+]
+RSS_PER_FEED = 5
+
 # 请求配置（避免请求过快被封）
 REQUEST_TIMEOUT = 30      # 超时时间（秒）
 MAX_RETRIES = 3           # 请求失败重试次数
