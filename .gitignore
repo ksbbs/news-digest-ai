@@ -10,6 +10,9 @@ logs/
 # 忽略输出文件
 output/
 
+# 忽略本地 API 目录（可能包含敏感信息）
+api/
+
 # Python编译文件
 __pycache__/
 *.pyc
@@ -19,6 +22,7 @@ __pycache__/
 
 # Python虚拟环境
 venv/
+venv2/
 env/
 ENV/
 
