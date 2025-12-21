@@ -18,7 +18,10 @@
 ├── news_scraper.py       # 新闻爬虫模块
 ├── ai_processor.py       # AI翻译总结模块
 ├── output_formatter.py   # 输出格式化模块
-└── requirements.txt      # Python依赖包列表
+├── requirements.txt      # Python依赖包列表
+├── output/               # 运行产物输出目录
+├── logs/                 # 日志文件目录
+└── 信息源/news.md        # 额外信息源清单
 ```
 
 ## 🔧 安装配置
@@ -367,3 +370,36 @@ HTML_FILENAME = "daily_news_{date}.html"
 Disclaimer / 说明
 本项目部分代码由 AI (ChatGPT/Claude/Copilot) 辅助生成。我已尽力测试并修复 bug，但作为初学者，代码可能仍有不足之处。欢迎大佬们提 Issue 或 PR 指正！
 (This project was built with the assistance of AI tools. While I have tested the code, suggestions for improvement are highly welcome!)
+
+## 📋 项目指南
+
+### 项目结构与模块组织
+- 代码集中在仓库根目录：`main.py` 为入口，`news_scraper.py` 负责抓取，`ai_processor.py` 负责调用模型，`output_formatter.py` 负责生成 Markdown/HTML。
+- 配置示例在 `config.example.py`，实际运行需复制为 `config.py` 并填写其中的 API/推送参数。
+- 依赖清单在 `requirements.txt`。
+- 运行产物默认输出到 `output/`，日志写入 `logs/`（见 `config.py` 中的 `OUTPUT_DIR`、`LOG_FILE`）。
+- `信息源/news.md` 保存额外的信息源清单（如需扩展抓取源可参考）。
+
+### 构建、测试与开发命令
+- 安装依赖：`python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt`
+- 准备配置：`cp config.example.py config.py` 后编辑其中的 `LLM_API_*`。
+- 本地运行：`python main.py`（会抓取新闻、调用模型、生成报告并可选推送）。
+- 当前无构建步骤；依赖均为纯 Python 包。
+
+### 编码风格与命名约定
+- 遵循 Python PEP 8：4 空格缩进，函数/变量用 `snake_case`，类名用 `CapWords`。
+- 模块文件使用小写下划线命名（如 `news_scraper.py`）。
+- 未配置格式化/静态检查工具；提交前请保持代码整洁、日志信息清晰。
+
+### 测试指南
+- 目前未配置自动化测试与覆盖率要求。
+- 如新增测试，建议引入 `pytest` 并放在 `tests/` 目录，文件以 `test_*.py` 命名；同时说明如何运行。
+
+### 提交与合并请求规范
+- 提交历史以简短英文动词开头的陈述句为主（如 "Include …""Update …"），建议延续这种简洁风格。
+- PR 请包含：变更说明、相关配置变更（如有）、运行/手动验证结果；若影响输出格式，附示例片段。
+- 不要提交 `config.py`、`.env`、`output/`、`logs/` 等包含敏感或运行产物的文件（已在 `.gitignore` 中忽略）。
+
+### 配置与安全提示
+- API Key/SMTP/Slack Webhook 属于敏感信息，仅放在本地 `config.py` 或 `.env`（如自建环境变量读取）。
+- 线上或自动化环境建议使用最小权限的 API Key，并限制日志中泄露敏感字段。
