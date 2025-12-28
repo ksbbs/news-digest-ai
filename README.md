@@ -24,168 +24,82 @@
 └── 信息源/news.md        # 额外信息源清单
 ```
 
-## 🔧 安装配置
+## 🔧 快速开始
 
-### 1. 安装依赖
+### 1. 环境准备
+确保你的系统中已安装 Python 3.9+。在 Debian 13 上，你可以通过以下命令准备环境：
 
 ```bash
-cd /code/py/news
+# 更新系统并安装必要组件
+sudo apt update && sudo apt install -y python3-venv python3-pip git
 
-# 创建Python虚拟环境（推荐）
+# 克隆项目
+git clone https://github.com/your-repo/digest-ai.git
+cd digest-ai/news-digest-ai
+```
+
+### 2. 安装依赖
+建议使用虚拟环境以避免依赖冲突：
+
+```bash
+# 创建并激活虚拟环境
 python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-# 或
-venv\Scripts\activate     # Windows
+source venv/bin/activate
 
-# 安装依赖
+# 安装核心依赖
 pip install -r requirements.txt
 ```
 
-### 2. 配置API参数
-
-编辑 `config.py` 文件，填写以下必填信息：
-
-```python
-# API基础URL（根据你使用的服务商填写）
-LLM_API_BASE_URL = "https://api.example.com/v1"
-
-# API密钥（从服务商获取）
-LLM_API_KEY = "your-api-key-here"
-
-# 模型名称
-LLM_MODEL_NAME = "your-model-name"
-```
-
-#### 常用服务商配置示例：
-
-**Moonshot AI (月之暗面)**
-```python
-LLM_API_BASE_URL = "https://api.moonshot.cn/v1"
-LLM_API_KEY = "sk-xxxxxxxxxxxxxx"
-LLM_MODEL_NAME = "moonshot-v1-8k"  # 或 moonshot-v1-32k
-```
-
-**OpenAI**
-```python
-LLM_API_BASE_URL = "https://api.openai.com/v1"
-LLM_API_KEY = "sk-xxxxxxxxxxxxxx"
-LLM_MODEL_NAME = "gpt-4"  # 或 gpt-3.5-turbo
-```
-
-**智谱AI (ChatGLM)**
-```python
-LLM_API_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-LLM_API_KEY = "your-api-key"
-LLM_MODEL_NAME = "glm-4"  # 或 glm-4-flash
-```
-
-**DeepSeek**
-```python
-LLM_API_BASE_URL = "https://api.deepseek.com/v1"
-LLM_API_KEY = "your-api-key"
-LLM_MODEL_NAME = "deepseek-chat"
-```
-
-### 3. 配置其他可选功能（可选）
-
-#### 邮件推送配置
-
-编辑 `config.py`：
-
-```python
-# SMTP服务器配置（以Gmail为例）
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USERNAME = "your-email@gmail.com"
-SMTP_PASSWORD = "your-app-password"  # Gmail需要使用应用专用密码
-TO_EMAIL = "recipient@example.com"
-```
-
-#### Slack推送配置
-
-在Slack中创建Incoming Webhook，然后编辑 `config.py`：
-
-```python
-SLACK_WEBHOOK_URL = "https://hooks.slack.com/services/xxxxx/xxxxx/xxxxx"
-SLACK_CHANNEL = "#daily-news"  # 或 @username
-```
-
-## 🎯 使用方法
-
-### 手动运行
+### 3. 配置系统
+项目使用 `config.py` 进行集中管理。你需要从模板创建一个真实的配置文件：
 
 ```bash
-# 确保在正确的目录
-cd /code/py/news
+cp config.example.py config.py
+```
 
-# 激活虚拟环境
-source venv/bin/activate  # Linux/macOS
-# 或
-venv\Scripts\activate     # Windows
+编辑 `config.py`，重点修改以下部分：
+- **必填**：`LLM_API_KEY`、`LLM_API_BASE_URL` 和 `LLM_MODEL_NAME`。
+- **新闻源**：在 `BBC_CATEGORIES` 中调整你感兴趣的板块。
+- **RSS 扩展**：将 `ENABLE_RSS_SOURCES` 设为 `True`，并在 `信息源/news.md` 中按行添加自定义 RSS 地址。
+- **通知**：如需推送，配置 `SMTP`（邮件）或 `SLACK_WEBHOOK_URL`。
 
-# 运行主脚本
+## 🎯 运行指南
+
+### 手动执行
+在激活虚拟环境的状态下，直接运行主程序：
+
+```bash
 python main.py
 ```
 
-程序会按顺序执行：
-1. 抓取BBC新闻（多个类别）
-2. 调用AI API翻译和总结
-3. 生成Markdown和HTML报告
-4. 发送邮件和Slack通知（如已配置）
+程序启动后会自动执行以下验证与流程：
+1. **配置校验**：检查 API Key 是否有效并尝试一次轻量级连接测试。
+2. **多模态抓取**：并行抓取 BBC 指定板块以及 `news.md` 中定义的 RSS 订阅源。
+3. **AI 深度处理**：调用大模型进行中文翻译、核心要点提取及 800-1000 字的深度摘要。
+4. **格式化输出**：在 `output/` 目录下生成同名的 `.md` 和 `.html` 报告。
+5. **分发通知**：根据配置发送邮件或 Slack 消息。
 
-**注意**：首次运行时，需要先正确配置 `config.py` 中的API参数，否则会提示配置错误。
+### 自动化部署 (Debian/Linux)
 
-### 定时自动执行
-
-#### 方式一：使用cron（推荐Linux）
-
-编辑crontab：
+#### 方案 A：使用 Cron 定时任务
+每天早上 8:30 自动生成新闻简报：
 ```bash
+# 打开定时任务编辑器
 crontab -e
+
+# 添加以下行（请替换为实际的项目绝对路径）
+30 8 * * * cd /path/to/digest-ai/news-digest-ai && /path/to/digest-ai/news-digest-ai/venv/bin/python main.py >> /path/to/digest-ai/news-digest-ai/logs/cron.log 2>&1
 ```
 
-添加以下行（每天上午8点运行）：
-```bash
-0 8 * * * cd /code/py/news && /full/path/to/venv/bin/python main.py >> /code/py/news/logs/cron.log 2>&1
-```
+#### 方案 B：Systemd Timer (更现代的方案)
+项目根目录下提供了 systemd 配置思路：
+1. 配置 `ExecStart` 指向虚拟环境中的 python 解释器。
+2. 使用 `systemctl enable --now news-scraper.timer` 激活。
 
-#### 方式二：使用systemd定时器（Linux）
-
-1. 创建服务文件 `/etc/systemd/system/news-scraper.service`：
-
-```ini
-[Unit]
-Description=Daily News Scraper and AI Summarizer
-After=network.target
-
-[Service]
-Type=oneshot
-WorkingDirectory=/code/py/news
-ExecStart=/full/path/to/venv/bin/python /code/py/news/main.py
-User=your-username
-```
-
-2. 创建定时器文件 `/etc/systemd/system/news-scraper.timer`：
-
-```ini
-[Unit]
-Description=Run news scraper daily at 8:00 AM
-Requires=news-scraper.service
-
-[Timer]
-OnCalendar=*-*-* 08:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-3. 启用并启动定时器：
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable news-scraper.timer
-sudo systemctl start news-scraper.timer
-```
+## 📊 产物说明
+- **Markdown (`output/*.md`)**: 适合在 Obsidian、Notion 或 GitHub 中阅读，支持清晰的目录跳转。
+- **HTML (`output/*.html`)**: 响应式设计，适配手机端阅读，具备精美的排版和原文链接跳转。
+- **日志 (`logs/*.log`)**: 记录了抓取耗时、API 消耗及可能的报错信息。
 
 ## 📊 输出示例
 
